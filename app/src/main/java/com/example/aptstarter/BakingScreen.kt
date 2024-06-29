@@ -1,9 +1,7 @@
 package com.example.aptstarter
 
-
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,9 +16,12 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -28,7 +29,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -39,9 +39,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.annotation.ExperimentalCoilApi
@@ -51,51 +52,52 @@ import com.aptstarter.R
 
 @SuppressLint("MutableCollectionMutableState")
 @OptIn(ExperimentalCoilApi::class)
-
 @Composable
 fun BoxWithBackgroundImage(painter: Painter) {
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Gray) // Color de fondo de respaldo mientras se carga la imagen
+                .background(Color.Gray) // Fondo de respaldo mientras se carga la imagen
         ) {
             Image(
                 painter = painter,
-                contentDescription = null, // Descripción opcional de la imagen
+                contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds // Escala de contenido de la imagen
+                contentScale = ContentScale.FillBounds
             )
         }
     }
 }
-private var onlyOne : Boolean = true
 
 @OptIn(ExperimentalCoilApi::class)
 @Composable
 fun BakingScreen(
     bakingViewModel: BakingViewModel = viewModel()
 ) {
-    val selectedImage = remember { mutableIntStateOf(0) }
-    val placeholderPrompt = ""
-    val placeholderResult = stringResource(R.string.results_placeholder)
-    var prompt by rememberSaveable { mutableStateOf(placeholderPrompt) }
-    var result by rememberSaveable { mutableStateOf(placeholderResult) }
+    var selectedImage by remember { mutableStateOf(0) }
+    var prompt by rememberSaveable { mutableStateOf("") }
+    var result by rememberSaveable { mutableStateOf("") }
+    var descriptions by remember { mutableStateOf<List<String>>(emptyList()) }
     var urls by remember { mutableStateOf<List<Urls>>(emptyList()) }
+    var listImages by remember { mutableStateOf<List<ApiResponse>>(emptyList()) }
 
     val uiState by bakingViewModel.uiState.collectAsState()
-
     val uiStateImages by bakingViewModel.uiStateImages.collectAsState()
 
     LaunchedEffect(Unit) {
         bakingViewModel.getImagesFromApi()
-        println("API CALLED")
+        prompt = "Give me a good question..."
     }
+
     if (uiStateImages is UiStateImages.SuccessImage) {
-        urls = (uiStateImages as UiStateImages.SuccessImage).outputText
+        listImages = (uiStateImages as UiStateImages.SuccessImage).outputText
+        descriptions = listImages.map { it.description ?: "Promote your image site here." }
+        urls = listImages.map { it.urls }
+    } else if (uiStateImages is UiStateImages.Error) {
+        println("Error: ${(uiStateImages as UiStateImages.Error).errorMessage}")
     }
 
     Column(
@@ -103,18 +105,15 @@ fun BakingScreen(
     ) {
         LazyRow(
             modifier = Modifier.fillMaxWidth()
-        )  {
-
+        ) {
             itemsIndexed(urls) { index, url ->
                 val painter = rememberImagePainter(
-                    data = url.regular
+                    data = url.raw
                 )
-
-                val isSelected = index == selectedImage.intValue
-
+                val isSelected = index == selectedImage
                 var bitmap by remember(url) { mutableStateOf<Bitmap?>(null) }
 
-                // Observe the painter state to get the Bitmap
+                // Observar el estado del painter para obtener el Bitmap
                 LaunchedEffect(painter) {
                     snapshotFlow { painter.state }
                         .collect { state ->
@@ -124,44 +123,110 @@ fun BakingScreen(
                         }
                 }
 
-                // Use the bitmap for further processing if needed
                 bitmap?.let {
-                    url.bitmap = it  
-                    println("Bitmap saved: ${url.bitmap}")
+                    url.bitmap = it
+                    println("Bitmap guardado: ${url.bitmap}")
                 }
 
-                Image(
-                    painter = painter,
-                    contentDescription = null,
+                Box(
                     modifier = Modifier
-                        .requiredSize(400.dp)
-                        .clickable { selectedImage.intValue = index }
-                        .then(
-                            if (isSelected) {
-                                Modifier.border(
-                                    BorderStroke(
-                                        4.dp,
-                                        MaterialTheme.colorScheme.primary
-                                    )
-                                )
-                            } else {
-                                Modifier
-                            }
+                        .requiredSize(450.dp)
+                        .align(Alignment.CenterHorizontally)
+                    .then(
+                        if (isSelected) {
+                            Modifier.border(
+                                width = 4.dp,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        } else {
+                            Modifier
+                        }
                         ),
-                    contentScale = ContentScale.FillBounds
-                )
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (painter.state is ImagePainter.State.Loading) {
+                        CircularProgressIndicator()
+                    } else {
+                        Image(
+                            painter = painter,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable { selectedImage = index },
+                            contentScale = ContentScale.Crop // Escala de contenido de la imagen
+                        )
+                    }
+
+
+                    // Botón para marcar una idea relacionada con la imagen
+                    var showDialog by remember { mutableStateOf(false) }
+                    var markedIdea by remember { mutableStateOf(descriptions[index]) }
+
+
+                    IconButton(
+                        onClick = {
+                            markedIdea = descriptions[index]
+                            showDialog = true
+                        },
+                        modifier = Modifier.align(Alignment.BottomEnd)
+                    ) {
+                        Box( ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.baseline_question_mark_24), // Reemplazar con tu icono personalizado
+                                contentDescription = "Icono Info",
+                                modifier = Modifier.requiredSize(28.dp)
+                            )
+                        }
+                    }
+                    // Diálogo para ingresar la idea marcada
+                    if (showDialog) {
+                        Dialog(
+                            onDismissRequest = { showDialog = false }
+                        ) {
+                            Card(
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = markedIdea,
+                                        modifier = Modifier.padding(16.dp)
+                                    )
+                                    BasicTextField(
+                                        value = "",
+                                        onValueChange = { },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                    )
+                                    Button(
+                                        onClick = {
+                                            // Aquí podrías enviar la idea marcada al ViewModel si es necesario
+                                            showDialog = false
+                                        },
+                                        modifier = Modifier
+                                            .align(Alignment.End)
+                                            .padding(16.dp)
+                                    ) {
+                                        Text("Aceptar")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
         Row(
             modifier = Modifier.padding(all = 16.dp)
         ) {
-
             TextField(
                 value = prompt,
-                label = { Text(stringResource(R.string.label_prompt)) },
-                onValueChange = {
-                    prompt = it },
+                placeholder = { Text("...") },
+                label = { Text("Ask something...") },
+                onValueChange = { prompt = it },
                 modifier = Modifier
                     .weight(0.8f)
                     .padding(end = 16.dp)
@@ -170,31 +235,39 @@ fun BakingScreen(
 
             Button(
                 onClick = {
-                    if (urls.isNotEmpty()) {
-                        bakingViewModel.sendPrompt(urls[selectedImage.intValue].bitmap, prompt)
+                    if (urls.isNotEmpty() && selectedImage < urls.size && urls[selectedImage].bitmap != null) {
+                        urls[selectedImage].bitmap?.let { bakingViewModel.sendPrompt(it, prompt) }
                     }
+                    prompt = ""
                 },
-                enabled = prompt.isNotEmpty(),
+                enabled = urls.isNotEmpty() && selectedImage < urls.size,
                 modifier = Modifier
                     .align(Alignment.CenterVertically)
             ) {
-                Text(text = stringResource(R.string.action_go))
+                Text(text = "Go")
             }
         }
 
         if (uiState is UiState.Loading) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally).padding(8.dp))
         } else {
             var textColor = MaterialTheme.colorScheme.onSurface
-            if (uiState is UiState.Error) {
-                textColor = MaterialTheme.colorScheme.error
-                result = (uiState as UiState.Error).errorMessage
-            } else if (uiState is UiState.Success) {
-                textColor = MaterialTheme.colorScheme.onSurface
-                result = (uiState as UiState.Success).outputText
-            } else if (uiState is UiState.SuccessTitle) {
-                prompt = (uiState as UiState.SuccessTitle).outputText
+            result = when (uiState) {
+                is UiState.Error -> {
+                    textColor = MaterialTheme.colorScheme.error
+                    (uiState as UiState.Error).errorMessage
+                }
+                is UiState.Success -> {
+                    textColor = MaterialTheme.colorScheme.onSurface
+                    (uiState as UiState.Success).outputText
+                }
+                is UiState.SuccessTitle -> {
+                    prompt = (uiState as UiState.SuccessTitle).outputText
+                    ""
+                }
+                else -> result
             }
+
             val scrollState = rememberScrollState()
             Text(
                 text = result,
@@ -207,7 +280,5 @@ fun BakingScreen(
                     .verticalScroll(scrollState)
             )
         }
-
-
     }
 }

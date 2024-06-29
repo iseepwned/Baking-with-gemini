@@ -88,15 +88,13 @@ class BakingViewModel : ViewModel() {
 
     fun getImagesFromApi() {
         val call = apiService.fetchData()
+        _uiStateImages.value = UiStateImages.Loading
         call.enqueue(object : Callback<List<ApiResponse>> {
             override fun onResponse(call: Call<List<ApiResponse>>, response: Response<List<ApiResponse>>) {
                 if (response.isSuccessful) {
                     val data = response.body()
                     data?.let {
-                        for (item in it) {
-                            urls.add(item.urls)
-                        }
-                        _uiStateImages.value = UiStateImages.SuccessImage(urls)
+                        _uiStateImages.value = UiStateImages.SuccessImage(data)
                     }
                 } else {
                     _uiStateImages.value = UiStateImages.Error("No more tokens.")
@@ -126,7 +124,7 @@ data class ApiResponse(
 )
 
 data class Urls(
-    var bitmap: Bitmap,
+    var bitmap: Bitmap? = null,
     @SerializedName("raw")
     val raw: String,
     @SerializedName("full")
@@ -142,7 +140,7 @@ data class Urls(
 )
 
 sealed interface UiStateImages {
-    data class SuccessImage(val outputText: List<Urls>) : UiStateImages
+    data class SuccessImage(val outputText: List<ApiResponse>) : UiStateImages
     object Loading : UiStateImages
     data class Error(val errorMessage: String) : UiStateImages
 }
