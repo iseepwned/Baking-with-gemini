@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
                         .fillMaxSize()
                         .padding(16.dp),
                     verticalArrangement = Arrangement.Bottom,
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.End
                 ) {
                     Switch(
                         modifier = Modifier

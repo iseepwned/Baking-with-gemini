@@ -37,10 +37,10 @@ import kotlinx.coroutines.launch
 
 // Data class to represent a chat message
 data class ChatMessage(val text: String, val isUser: Boolean)
-
+private val _messages = mutableStateListOf<ChatMessage>()
 // ViewModel for managing chat data and interactions
 class ChatViewModel : ViewModel() {
-    private val _messages = mutableStateListOf<ChatMessage>()
+
     val messages: List<ChatMessage> = _messages
 
     val _userInput = mutableStateOf("")
@@ -65,7 +65,6 @@ class ChatViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             val chat = generativeModel.startChat()
             val response = chat.sendMessage(prompt)
-            _messages.clear()
             _messages.add(ChatMessage(response.text!!, isUser = false))
             _messages.add(ChatMessage(userInput.trim(), isUser = true))
             _userInput.value = ""
@@ -109,6 +108,7 @@ fun ChatScreen() {
         // Display loading indicator or error message based on UI state
         when (uiState) {
             is UiState.Loading -> {
+                _messages.clear()
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally).padding(128.dp))
             }
             is UiState.Error -> {
