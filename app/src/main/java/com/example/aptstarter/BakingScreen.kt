@@ -47,9 +47,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.annotation.ExperimentalCoilApi
 import coil.compose.ImagePainter
 import coil.compose.rememberImagePainter
-import coil.transform.CircleCropTransformation
 import com.aptstarter.R
-import com.aptstarter.UiState
 
 @SuppressLint("MutableCollectionMutableState")
 @OptIn(ExperimentalCoilApi::class)
@@ -74,7 +72,9 @@ fun BoxWithBackgroundImage(painter: Painter) {
         }
     }
 }
+private var onlyOne : Boolean = true
 
+@OptIn(ExperimentalCoilApi::class)
 @Composable
 fun BakingScreen(
     bakingViewModel: BakingViewModel = viewModel()
@@ -84,15 +84,19 @@ fun BakingScreen(
     val placeholderResult = stringResource(R.string.results_placeholder)
     var prompt by rememberSaveable { mutableStateOf(placeholderPrompt) }
     var result by rememberSaveable { mutableStateOf(placeholderResult) }
-    var urls: List<Urls> = mutableListOf()
+    var urls by remember { mutableStateOf<List<Urls>>(emptyList()) }
 
     val uiState by bakingViewModel.uiState.collectAsState()
 
-    // Llamar getImagesFromApi() solo una vez al iniciar el composable
+    val uiStateImages by bakingViewModel.uiStateImages.collectAsState()
+
     LaunchedEffect(Unit) {
         bakingViewModel.getImagesFromApi()
+        println("API CALLED")
     }
-
+    if (uiStateImages is UiStateImages.SuccessImage) {
+        urls = (uiStateImages as UiStateImages.SuccessImage).outputText
+    }
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -103,10 +107,7 @@ fun BakingScreen(
 
             itemsIndexed(urls) { index, url ->
                 val painter = rememberImagePainter(
-                    data = url.full,
-                    builder = {
-                        transformations(CircleCropTransformation())
-                    }
+                    data = url.regular
                 )
 
                 val isSelected = index == selectedImage.intValue
@@ -125,7 +126,7 @@ fun BakingScreen(
 
                 // Use the bitmap for further processing if needed
                 bitmap?.let {
-                    url.bitmap = it // Store bitmap in your Url object if necessary
+                    url.bitmap = it  
                     println("Bitmap saved: ${url.bitmap}")
                 }
 
@@ -133,7 +134,7 @@ fun BakingScreen(
                     painter = painter,
                     contentDescription = null,
                     modifier = Modifier
-                        .requiredSize(200.dp)
+                        .requiredSize(400.dp)
                         .clickable { selectedImage.intValue = index }
                         .then(
                             if (isSelected) {
@@ -147,7 +148,7 @@ fun BakingScreen(
                                 Modifier
                             }
                         ),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.FillBounds
                 )
             }
         }
@@ -193,9 +194,6 @@ fun BakingScreen(
                 result = (uiState as UiState.Success).outputText
             } else if (uiState is UiState.SuccessTitle) {
                 prompt = (uiState as UiState.SuccessTitle).outputText
-            } else if (uiState is UiState.SuccessImage) {
-                urls = (uiState as UiState.SuccessImage).outputText
-
             }
             val scrollState = rememberScrollState()
             Text(
@@ -209,5 +207,7 @@ fun BakingScreen(
                     .verticalScroll(scrollState)
             )
         }
+
+
     }
 }

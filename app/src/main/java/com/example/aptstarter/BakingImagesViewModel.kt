@@ -1,12 +1,6 @@
 package com.example.aptstarter
 
-import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.aptstarter.UiState
-import com.google.ai.client.generativeai.type.content
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class BakingImagesViewModel : ViewModel()  {
   /*  private fun getImagesViewModel(){

@@ -1,10 +1,9 @@
-package com.aptstarter
-
-import com.example.aptstarter.Urls
+package com.example.aptstarter
 
 /**
  * A sealed hierarchy describing the state of the text generation.
  */
+
 sealed interface UiState {
 
     /**
@@ -21,7 +20,6 @@ sealed interface UiState {
      * Text has been generated
      */
 
-    data class SuccessImage(val outputText: List<Urls>) : UiState
 
     data class SuccessTitle(val outputText: String) : UiState
 

@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.aptstarter.UiState
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.content
 import com.google.gson.annotations.SerializedName
@@ -25,6 +24,12 @@ class BakingViewModel : ViewModel() {
         MutableStateFlow(UiState.Initial)
     val uiState: StateFlow<UiState> =
         _uiState.asStateFlow()
+
+
+    private val _uiStateImages: MutableStateFlow<UiStateImages> =
+        MutableStateFlow(UiStateImages.Loading)
+    val uiStateImages: StateFlow<UiStateImages> =
+        _uiStateImages.asStateFlow()
 
 
     private val generativeModel = GenerativeModel(
@@ -83,7 +88,6 @@ class BakingViewModel : ViewModel() {
 
     fun getImagesFromApi() {
         val call = apiService.fetchData()
-        Log.d("API CALL", call.toString())
         call.enqueue(object : Callback<List<ApiResponse>> {
             override fun onResponse(call: Call<List<ApiResponse>>, response: Response<List<ApiResponse>>) {
                 if (response.isSuccessful) {
@@ -92,11 +96,10 @@ class BakingViewModel : ViewModel() {
                         for (item in it) {
                             urls.add(item.urls)
                         }
-                        _uiState.value = UiState.SuccessImage(urls)
+                        _uiStateImages.value = UiStateImages.SuccessImage(urls)
                     }
-                    Log.d("API IMAGENES", data.toString())
                 } else {
-                    _uiState.value = UiState.Error("No more tokens.")
+                    _uiStateImages.value = UiStateImages.Error("No more tokens.")
                 }
             }
             override fun onFailure(call: Call<List<ApiResponse>>, t: Throwable) {
@@ -107,7 +110,7 @@ class BakingViewModel : ViewModel() {
 }
 
 interface ApiService {
-    @GET("photos/random/?client_id=HbE-YG8OvyLzO9oWSXyrTjqqgrwYlVkNMtbJmnX_D4Q&query=dessert&count=1")  // Aquí especificas la ruta del endpoint
+    @GET("photos/random/?client_id=HbE-YG8OvyLzO9oWSXyrTjqqgrwYlVkNMtbJmnX_D4Q&query=dessert&count=25")  // Aquí especificas la ruta del endpoint
     fun fetchData(
     ): Call<List<ApiResponse>> // ApiResponse es el modelo de datos esperado en la respuesta
 }
@@ -137,3 +140,9 @@ data class Urls(
     @SerializedName("small_s3")
     val smallS3: String
 )
+
+sealed interface UiStateImages {
+    data class SuccessImage(val outputText: List<Urls>) : UiStateImages
+    object Loading : UiStateImages
+    data class Error(val errorMessage: String) : UiStateImages
+}
