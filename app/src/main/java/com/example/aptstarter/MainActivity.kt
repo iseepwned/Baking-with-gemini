@@ -1,6 +1,6 @@
-package com.aptstarter
-
+package com.example.aptstarter
 import ChatScreen
+import android.media.MediaPlayer
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,26 +16,31 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.aptstarter.BakingScreen
+import com.aptstarter.R
 import com.example.aptstarter.ui.theme.APTSTARTERTheme
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
             APTSTARTERTheme {
                 val navController = rememberNavController()
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
@@ -45,6 +50,7 @@ class MainActivity : ComponentActivity() {
                         composable("second_screen") { ChatScreen() }
                     }
                 }
+
                 var checked by remember { mutableStateOf(true) }
                 Column(
                     modifier = Modifier
@@ -56,7 +62,7 @@ class MainActivity : ComponentActivity() {
                     Switch(
                         modifier = Modifier
                             .padding(bottom = 64.dp),
-                                checked = checked,
+                        checked = checked,
                         onCheckedChange = {
                             checked = it
                         },
@@ -74,9 +80,25 @@ class MainActivity : ComponentActivity() {
                             null
                         }
                     )
-                }
 
+                    if (checked) {
+                        SoundPlayer(rawResourceId = R.raw.audio)
+                    }
+                }
             }
         }
+    }
+
+    @Composable
+    fun SoundPlayer(rawResourceId: Int) {
+        val context = LocalContext.current
+        var mediaPlayer by remember { mutableStateOf(MediaPlayer.create(context, rawResourceId)) }
+
+        DisposableEffect(Unit) {
+            onDispose {
+                mediaPlayer.release()
+            }
+        }
+        mediaPlayer.start()
     }
 }

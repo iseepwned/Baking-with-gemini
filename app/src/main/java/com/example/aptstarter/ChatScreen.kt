@@ -1,39 +1,61 @@
 
+import android.media.MediaPlayer
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aptstarter.R
 import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.cos
+import kotlin.math.sin
 
 // Data class to represent a chat message
 data class ChatMessage(val text: String, val isUser: Boolean)
@@ -65,8 +87,8 @@ class ChatViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             val chat = generativeModel.startChat()
             val response = chat.sendMessage(prompt)
-            _messages.add(ChatMessage(response.text!!, isUser = false))
-            _messages.add(ChatMessage(userInput.trim(), isUser = true))
+            _messages.add(ChatMessage(response.text ?: "Try again.", isUser = false))
+            _messages.add(ChatMessage(userInput, isUser = true))
             _userInput.value = ""
             _uiState.value = UiState.Success
         }
@@ -81,7 +103,21 @@ sealed class UiState {
     data class Error(val message: String) : UiState()
 }
 
+@Composable
+fun SoundPlayer(rawResourceId: Int) {
+    val context = LocalContext.current
+    var mediaPlayer by remember { mutableStateOf(MediaPlayer.create(context, rawResourceId)) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            mediaPlayer.release()
+        }
+    }
+    mediaPlayer.start()
+}
+
 // Composable for the chat UI
+@Preview(showBackground = true)
 @Composable
 fun ChatScreen() {
     val viewModel: ChatViewModel = viewModel()
@@ -94,6 +130,11 @@ fun ChatScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        Image(
+            painter = painterResource(id = R.drawable.neww),
+            contentDescription = "Assistant",
+            modifier = Modifier.requiredSize(38.dp)
+        )
         // LazyColumn to efficiently display the chat messages
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -108,8 +149,7 @@ fun ChatScreen() {
         // Display loading indicator or error message based on UI state
         when (uiState) {
             is UiState.Loading -> {
-                _messages.clear()
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally).padding(128.dp))
+                DotsLoadingIndicatorPreview()
             }
             is UiState.Error -> {
                 Text(
@@ -118,7 +158,7 @@ fun ChatScreen() {
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
             }
-            else -> {} // Do nothing for other states
+            else -> {}
         }
 
         // Input field for the user's message
@@ -130,8 +170,10 @@ fun ChatScreen() {
             TextField(
                 value = viewModel.userInput,
                 onValueChange = { viewModel._userInput.value = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Type your message here...") },
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(bottom = 8.dp),
+                placeholder = { Text("Write here...") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
             )
 
@@ -156,9 +198,63 @@ fun MessageItem(message: ChatMessage) {
             modifier = Modifier.padding(8.dp),
             color = if (message.isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
         )
+        if (!message.isUser) {
+            SoundPlayer(rawResourceId = (R.raw.result))
+        }
     }
 }
 
+
+
+@Composable
+fun DotsLoadingIndicator(modifier: Modifier = Modifier) {
+    var dotOffset by remember { mutableStateOf(0f) }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "")
+    val dotAnimation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ), label = ""
+    )
+
+    LaunchedEffect(key1 = dotAnimation) {
+        dotOffset = dotAnimation
+    }
+
+    Canvas(modifier = modifier.fillMaxWidth()) {
+        val numDots = 12
+        val dotSize = 10f
+        val center = size / 2f
+
+        for (i in 0 until numDots) {
+            val offsetAngle = i * (360 / numDots)
+            val dotAngle = offsetAngle + (dotOffset * 60)
+            val dotX =  (size.width / 4 * cos(Math.toRadians(dotAngle.toDouble()))).toFloat()
+            val dotY =  (size.width / 4 * sin(Math.toRadians(dotAngle.toDouble()))).toFloat()
+
+            drawCircle(
+                color = Color.White,
+                radius = dotSize,
+                center = androidx.compose.ui.geometry.Offset(dotX, dotY),
+                style = Stroke(dotSize)
+            )
+        }
+    }
+}
+
+@Composable
+fun DotsLoadingIndicatorPreview() {
+    Box(
+        modifier = Modifier.fillMaxSize()
+        .padding(start = 200.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        DotsLoadingIndicator()
+    }
+}
 
 sealed class Content {
     data class Text(val text: String) : Content()

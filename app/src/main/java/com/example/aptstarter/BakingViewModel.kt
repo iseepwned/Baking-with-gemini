@@ -88,6 +88,7 @@ class BakingViewModel : ViewModel() {
 
     fun getImagesFromApi() {
         val call = apiService.fetchData()
+        Log.d("API CALL", "check this for api calls")
         _uiStateImages.value = UiStateImages.Loading
         call.enqueue(object : Callback<List<ApiResponse>> {
             override fun onResponse(call: Call<List<ApiResponse>>, response: Response<List<ApiResponse>>) {

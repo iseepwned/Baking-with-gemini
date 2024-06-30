@@ -1,10 +1,14 @@
 package com.example.aptstarter
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.graphics.Bitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -36,9 +41,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.graphics.drawable.toBitmap
@@ -48,9 +55,14 @@ import coil.compose.ImagePainter
 import coil.compose.rememberImagePainter
 import com.aptstarter.R
 
+data class Topic(val name: String, val description: String)
+
+
+
 
 @OptIn(ExperimentalCoilApi::class, ExperimentalFoundationApi::class)
 @Composable
+@Preview
 fun BakingScreen(
     bakingViewModel: BakingViewModel = viewModel()
 ) {
@@ -65,8 +77,7 @@ fun BakingScreen(
     val uiStateImages by bakingViewModel.uiStateImages.collectAsState()
 
     LaunchedEffect(Unit) {
-        bakingViewModel.getImagesFromApi()
-        prompt = "Give me a good question..."
+        //bakingViewModel.getImagesFromApi()
     }
 
     if (uiStateImages is UiStateImages.SuccessImage) {
@@ -204,21 +215,53 @@ fun BakingScreen(
                 }
             }
         }
+        @Composable
+        fun ScrollableButtons() {
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val topics = listOf(
+                    Topic("Recipe Details", "Ask about specific details or steps in a recipe."),
+                    Topic("Flavor Profile", "Inquire about the taste, texture, and overall flavor."),
+                    Topic("Presentation Techniques", "Discuss techniques used to present food attractively."),
+                    Topic("Inspiration Sources", "Explore where the inspiration for the dish came from."),
+                    Topic("Special Occasions", "Ask if the dish is prepared for a special event or celebration."),
+                    Topic("Cooking Tips", "Seek advice or tips for cooking similar dishes."),
+                    Topic("Ingredients Used", "Inquire about the specific ingredients used in the dish."),
+                    Topic("Personal Experiences", "Discuss personal experiences related to preparing or eating the dish."),
+                    Topic("Cultural Significance", "Explore any cultural or traditional aspects of the dish."),
+                    Topic("Variations and Alternatives", "Discuss alternative versions or variations of the dish.")
+                )
+
+                items(topics.size) { index ->
+                    Button(
+                        onClick = { prompt = topics[index].description },
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    ) {
+                        Text(text = topics[index].name)
+                    }
+                }
+
+            }
+        }
+        ScrollableButtons()
 
         Row(
-            modifier = Modifier.padding(all = 16.dp)
         ) {
             TextField(
                 value = prompt,
                 placeholder = { Text("Ask something...") },
                 onValueChange = { prompt = it },
                 modifier = Modifier
-                    .weight(0.8f)
-                    .padding(16.dp)
+                    .weight(0.9f)
                     .align(Alignment.CenterVertically)
+                    .padding(8.dp)
             )
 
-            Button(
+            IconButton(
                 onClick = {
                     if (urls.isNotEmpty() && pagerState.currentPage < urls.size && urls[pagerState.currentPage].bitmap != null) {
                         urls[pagerState.currentPage].bitmap?.let { bakingViewModel.sendPrompt(it, prompt) }
@@ -228,8 +271,14 @@ fun BakingScreen(
                 enabled = urls.isNotEmpty() && pagerState.currentPage < urls.size,
                 modifier = Modifier
                     .align(Alignment.CenterVertically)
+                    .weight(0.2f)
+
             ) {
-                Text(text = "Go")
+                Image(
+                    painter = painterResource(id = R.drawable.gemini),
+                    contentDescription = "Execute",
+                    modifier = Modifier.requiredSize(52.dp)
+                )
             }
         }
 
@@ -255,14 +304,60 @@ fun BakingScreen(
                 else -> result
             }
 
-            Text(
-                text = result,
-                textAlign = TextAlign.Start,
-                color = textColor,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(16.dp)
+
+            Text(result, style = MaterialTheme.typography.bodyLarge, modifier = Modifier
+                .padding(16.dp)
+                .fillMaxSize())
+
+            // Botón con ícono de información para copiar al portapapeles
+            IconButtonWithCopyToClipboard(
+                onClick = { /* Acción adicional si es necesaria al hacer clic */ },
+                resultToCopy = result
             )
         }
+    }
+
+}
+
+@Composable
+fun IconButtonWithCopyToClipboard(
+    onClick: () -> Unit,
+    resultToCopy: String,
+    modifier: Modifier = Modifier,
+    painter: Painter = painterResource(id = R.drawable.copy_foreground),
+    contentDescription: String = "Icono Info"
+) {
+    val context = LocalContext.current
+
+    IconButton(
+        modifier = Modifier.fillMaxSize(),
+
+        onClick = {
+            onClick() // Llama a la acción principal (si la hubiera) cuando se hace clic en el botón
+            // Copia el resultado al portapapeles
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("Copied Text", resultToCopy))
+        },
+    ) {
+        Image(
+            painter = painter,
+            contentDescription = contentDescription,
+            modifier = Modifier.requiredSize(28.dp)
+        )
+    }
+
+    IconButton(
+        onClick = {
+            onClick() // Llama a la acción principal (si la hubiera) cuando se hace clic en el botón
+            // Copia el resultado al portapapeles
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("Find me:", "https://www.linkedin.com/in/facundoesteban9/"))
+        },
+    ) {
+        Image(
+            painter = painterResource(id = R.mipmap.linkedin),
+            contentDescription = contentDescription,
+            modifier = Modifier.requiredSize(32.dp)
+        )
     }
 }
