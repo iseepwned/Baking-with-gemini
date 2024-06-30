@@ -1,10 +1,8 @@
 package com.example.aptstarter
 
-import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -12,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.pager.HorizontalPager
@@ -37,8 +36,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -51,27 +48,6 @@ import coil.compose.ImagePainter
 import coil.compose.rememberImagePainter
 import com.aptstarter.R
 
-@SuppressLint("MutableCollectionMutableState")
-@OptIn(ExperimentalCoilApi::class)
-@Composable
-fun BoxWithBackgroundImage(painter: Painter) {
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Gray) // Fondo de respaldo mientras se carga la imagen
-        ) {
-            Image(
-                painter = painter,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds
-            )
-        }
-    }
-}
 
 @OptIn(ExperimentalCoilApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -100,14 +76,19 @@ fun BakingScreen(
     } else if (uiStateImages is UiStateImages.Error) {
         println("Error: ${(uiStateImages as UiStateImages.Error).errorMessage}")
     }
+
+    // Column principal con desplazamiento vertical
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())  // Solo un uso correcto de verticalScroll aquí
     ) {
-        // Utilizamos rememberPagerState para gestionar el estado del paginador
+        // Contenido del HorizontalPager
         val pagerState = rememberPagerState(
             pageCount = { urls.size },
             initialPage = 0
         )
+
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxWidth(),
@@ -119,6 +100,7 @@ fun BakingScreen(
             )
             val isSelected = page == pagerState.currentPage
             var bitmap by remember(url) { mutableStateOf<Bitmap?>(null) }
+
             LaunchedEffect(painter) {
                 snapshotFlow { painter.state }
                     .collect { state ->
@@ -135,7 +117,8 @@ fun BakingScreen(
 
             Box(
                 modifier = Modifier
-                    .requiredSize(350.dp)
+                    .fillMaxWidth()
+                    .height(400.dp)
                     .align(Alignment.CenterHorizontally)
                     .then(
                         if (isSelected) {
@@ -156,7 +139,7 @@ fun BakingScreen(
                         painter = painter,
                         contentDescription = null,
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
                             .clickable { selectedImage = pagerState.currentPage },
                         contentScale = ContentScale.Crop
                     )
@@ -231,7 +214,7 @@ fun BakingScreen(
                 onValueChange = { prompt = it },
                 modifier = Modifier
                     .weight(0.8f)
-                    .padding(end = 16.dp)
+                    .padding(16.dp)
                     .align(Alignment.CenterVertically)
             )
 
@@ -251,7 +234,9 @@ fun BakingScreen(
         }
 
         if (uiState is UiState.Loading) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally).padding(8.dp))
+            CircularProgressIndicator(modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(8.dp))
         } else {
             var textColor = MaterialTheme.colorScheme.onSurface
             result = when (uiState) {
@@ -270,7 +255,6 @@ fun BakingScreen(
                 else -> result
             }
 
-            val scrollState = rememberScrollState()
             Text(
                 text = result,
                 textAlign = TextAlign.Start,
@@ -278,8 +262,6 @@ fun BakingScreen(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
                     .padding(16.dp)
-                    .fillMaxSize()
-                    .verticalScroll(scrollState)
             )
         }
     }
