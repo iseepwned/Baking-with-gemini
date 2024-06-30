@@ -2,6 +2,7 @@ package com.example.aptstarter
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,8 +14,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -72,7 +73,7 @@ fun BoxWithBackgroundImage(painter: Painter) {
     }
 }
 
-@OptIn(ExperimentalCoilApi::class)
+@OptIn(ExperimentalCoilApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun BakingScreen(
     bakingViewModel: BakingViewModel = viewModel()
@@ -94,44 +95,48 @@ fun BakingScreen(
 
     if (uiStateImages is UiStateImages.SuccessImage) {
         listImages = (uiStateImages as UiStateImages.SuccessImage).outputText
-        descriptions = listImages.map { it.description ?: "Promote your image site here." }
+        descriptions = listImages.map { it.description ?: "Promote your image site here. \n\n\n https://www.linkedin.com/in/facundoesteban9/ " }
         urls = listImages.map { it.urls }
     } else if (uiStateImages is UiStateImages.Error) {
         println("Error: ${(uiStateImages as UiStateImages.Error).errorMessage}")
     }
-
     Column(
         modifier = Modifier.fillMaxSize(),
     ) {
-        LazyRow(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            itemsIndexed(urls) { index, url ->
-                val painter = rememberImagePainter(
-                    data = url.raw
-                )
-                val isSelected = index == selectedImage
-                var bitmap by remember(url) { mutableStateOf<Bitmap?>(null) }
-
-                // Observar el estado del painter para obtener el Bitmap
-                LaunchedEffect(painter) {
-                    snapshotFlow { painter.state }
-                        .collect { state ->
-                            if (state is ImagePainter.State.Success) {
-                                bitmap = state.result.drawable.toBitmap()
-                            }
+        // Utilizamos rememberPagerState para gestionar el estado del paginador
+        val pagerState = rememberPagerState(
+            pageCount = { urls.size },
+            initialPage = 0
+        )
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) { page ->
+            val url = urls[page]
+            val painter = rememberImagePainter(
+                data = url.raw
+            )
+            val isSelected = page == pagerState.currentPage
+            var bitmap by remember(url) { mutableStateOf<Bitmap?>(null) }
+            LaunchedEffect(painter) {
+                snapshotFlow { painter.state }
+                    .collect { state ->
+                        if (state is ImagePainter.State.Success) {
+                            bitmap = state.result.drawable.toBitmap()
                         }
-                }
+                    }
+            }
 
-                bitmap?.let {
-                    url.bitmap = it
-                    println("Bitmap guardado: ${url.bitmap}")
-                }
+            bitmap?.let {
+                url.bitmap = it
+                println("Bitmap guardado: ${url.bitmap}")
+            }
 
-                Box(
-                    modifier = Modifier
-                        .requiredSize(450.dp)
-                        .align(Alignment.CenterHorizontally)
+            Box(
+                modifier = Modifier
+                    .requiredSize(350.dp)
+                    .align(Alignment.CenterHorizontally)
                     .then(
                         if (isSelected) {
                             Modifier.border(
@@ -141,76 +146,74 @@ fun BakingScreen(
                         } else {
                             Modifier
                         }
-                        ),
-                    contentAlignment = Alignment.Center
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (painter.state is ImagePainter.State.Loading) {
+                    CircularProgressIndicator()
+                } else {
+                    Image(
+                        painter = painter,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clickable { selectedImage = pagerState.currentPage },
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                // Botón para marcar una idea relacionada con la imagen
+                var showDialog by remember { mutableStateOf(false) }
+                var markedIdea by remember { mutableStateOf(descriptions[pagerState.currentPage]) }
+
+                IconButton(
+                    onClick = {
+                        markedIdea = descriptions[pagerState.currentPage]
+                        showDialog = true
+                    },
+                    modifier = Modifier.align(Alignment.BottomEnd)
                 ) {
-                    if (painter.state is ImagePainter.State.Loading) {
-                        CircularProgressIndicator()
-                    } else {
+                    Box() {
                         Image(
-                            painter = painter,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clickable { selectedImage = index },
-                            contentScale = ContentScale.Crop // Escala de contenido de la imagen
+                            painter = painterResource(id = R.drawable.baseline_question_mark_24),
+                            contentDescription = "Icono Info",
+                            modifier = Modifier.requiredSize(28.dp)
                         )
                     }
+                }
 
-
-                    // Botón para marcar una idea relacionada con la imagen
-                    var showDialog by remember { mutableStateOf(false) }
-                    var markedIdea by remember { mutableStateOf(descriptions[index]) }
-
-
-                    IconButton(
-                        onClick = {
-                            markedIdea = descriptions[index]
-                            showDialog = true
-                        },
-                        modifier = Modifier.align(Alignment.BottomEnd)
+                // Diálogo para ingresar la idea marcada
+                if (showDialog) {
+                    Dialog(
+                        onDismissRequest = { showDialog = false }
                     ) {
-                        Box( ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.baseline_question_mark_24), // Reemplazar con tu icono personalizado
-                                contentDescription = "Icono Info",
-                                modifier = Modifier.requiredSize(28.dp)
-                            )
-                        }
-                    }
-                    // Diálogo para ingresar la idea marcada
-                    if (showDialog) {
-                        Dialog(
-                            onDismissRequest = { showDialog = false }
+                        Card(
+                            modifier = Modifier.padding(16.dp)
                         ) {
-                            Card(
-                                modifier = Modifier.padding(16.dp)
+                            Column(
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth()
+                                Text(
+                                    text = markedIdea,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                                BasicTextField(
+                                    value = "",
+                                    onValueChange = { },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp)
+                                )
+                                Button(
+                                    onClick = {
+                                        // Aquí podrías enviar la idea marcada al ViewModel si es necesario
+                                        showDialog = false
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.End)
+                                        .padding(16.dp)
                                 ) {
-                                    Text(
-                                        text = markedIdea,
-                                        modifier = Modifier.padding(16.dp)
-                                    )
-                                    BasicTextField(
-                                        value = "",
-                                        onValueChange = { },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp)
-                                    )
-                                    Button(
-                                        onClick = {
-                                            // Aquí podrías enviar la idea marcada al ViewModel si es necesario
-                                            showDialog = false
-                                        },
-                                        modifier = Modifier
-                                            .align(Alignment.End)
-                                            .padding(16.dp)
-                                    ) {
-                                        Text("Aceptar")
-                                    }
+                                    Text("Aceptar")
                                 }
                             }
                         }
@@ -224,8 +227,7 @@ fun BakingScreen(
         ) {
             TextField(
                 value = prompt,
-                placeholder = { Text("...") },
-                label = { Text("Ask something...") },
+                placeholder = { Text("Ask something...") },
                 onValueChange = { prompt = it },
                 modifier = Modifier
                     .weight(0.8f)
@@ -235,12 +237,12 @@ fun BakingScreen(
 
             Button(
                 onClick = {
-                    if (urls.isNotEmpty() && selectedImage < urls.size && urls[selectedImage].bitmap != null) {
-                        urls[selectedImage].bitmap?.let { bakingViewModel.sendPrompt(it, prompt) }
+                    if (urls.isNotEmpty() && pagerState.currentPage < urls.size && urls[pagerState.currentPage].bitmap != null) {
+                        urls[pagerState.currentPage].bitmap?.let { bakingViewModel.sendPrompt(it, prompt) }
                     }
                     prompt = ""
                 },
-                enabled = urls.isNotEmpty() && selectedImage < urls.size,
+                enabled = urls.isNotEmpty() && pagerState.currentPage < urls.size,
                 modifier = Modifier
                     .align(Alignment.CenterVertically)
             ) {

@@ -64,6 +64,7 @@ dependencies {
     implementation(libs.generativeai)
     implementation(libs.androidx.media3.common)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.paging.common.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -76,5 +77,8 @@ dependencies {
     implementation("com.squareup.picasso:picasso:2.71828") // Picasso para cargar imágenes desde URL
     implementation("com.squareup.okhttp3:okhttp:5.0.0-alpha.2") // Dependencia necesaria para Picasso
     implementation("io.coil-kt:coil-compose:1.4.0")
+    implementation("androidx.compose.ui:ui:1.0.0")
+    implementation("androidx.compose.foundation:foundation:1.0.0")
+
 
 }
