@@ -1,13 +1,14 @@
 package com.example.aptstarter
+
 import ChatScreen
 import android.media.MediaPlayer
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -22,25 +23,44 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.aptstarter.R
 import com.example.aptstarter.ui.theme.APTSTARTERTheme
+import java.util.Locale
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener  {
+    lateinit var tts: TextToSpeech
+    var isInitialized = false
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            val result = tts.setLanguage(Locale.US)
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                // Handle error: Language data is missing or the language is not supported.
+            } else {
+                isInitialized = true
+            }
+        } else {
+            // Handle error: TextToSpeech initialization failed.
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        tts = TextToSpeech(this, this)
+        tts.setSpeechRate(1.0f)  // Velocidad de habla
+        tts.setPitch(1.0f)
 
         setContent {
             APTSTARTERTheme {
                 val navController = rememberNavController()
-
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
@@ -52,40 +72,46 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var checked by remember { mutableStateOf(true) }
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.Bottom,
-                    horizontalAlignment = Alignment.End
-                ) {
+                var switchPosition by remember { mutableStateOf(Position(0f, 0f)) }
+
                     Switch(
                         modifier = Modifier
-                            .padding(bottom = 64.dp),
+                            .offset { IntOffset(switchPosition.x.toInt(), switchPosition.y.toInt()) }
+                            .graphicsLayer {
+                                translationX = switchPosition.x
+                                translationY = switchPosition.y
+                            }
+                            .pointerInput(Unit) {
+                                detectDragGestures { change, dragAmount ->
+                                    switchPosition = Position(
+                                        switchPosition.x + dragAmount.x,
+                                        switchPosition.y + dragAmount.y
+                                    )
+                                }
+                            },
                         checked = checked,
                         onCheckedChange = {
                             checked = it
-                        },
-                        thumbContent = if (checked) {
-                            {
-                                Icon(
-                                    imageVector = Icons.Filled.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(SwitchDefaults.IconSize),
-                                )
+                            if (checked) {
                                 navController.navigate("first_screen")
+                            } else {
+                                navController.navigate("second_screen")
                             }
-                        } else {
-                            navController.navigate("second_screen")
-                            null
+                        },
+                        thumbContent = {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(SwitchDefaults.IconSize),
+                            )
                         }
                     )
 
                     if (checked) {
                         SoundPlayer(rawResourceId = R.raw.audio)
                     }
+
                 }
-            }
         }
     }
 
@@ -101,4 +127,6 @@ class MainActivity : ComponentActivity() {
         }
         mediaPlayer.start()
     }
+
+    data class Position(val x: Float, val y: Float)
 }

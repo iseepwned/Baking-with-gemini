@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aptstarter.BuildConfig
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.content
 import com.google.gson.annotations.SerializedName
@@ -28,13 +29,13 @@ class BakingViewModel : ViewModel() {
 
     private val _uiStateImages: MutableStateFlow<UiStateImages> =
         MutableStateFlow(UiStateImages.Loading)
-    val uiStateImages: StateFlow<UiStateImages> =
+    var uiStateImages: StateFlow<UiStateImages> =
         _uiStateImages.asStateFlow()
 
 
     private val generativeModel = GenerativeModel(
         modelName = "gemini-pro-vision",
-        apiKey = "AIzaSyDk7WJLgEmYCjVRB39DPjLTyhhR7kdQ5zM"
+        apiKey = BuildConfig.apiKey
     )
 
     private val retrofit = Retrofit.Builder()
@@ -44,13 +45,12 @@ class BakingViewModel : ViewModel() {
 
     private val apiService = retrofit.create(ApiService::class.java)
 
-    private var urls: MutableList<Urls> = mutableListOf()
-
-    fun sendPrompt(bitmap: Bitmap, prompt: String) {
+    fun sendPrompt(bitmap: Bitmap?, prompt: String?) {
         _uiState.value = UiState.Loading
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                if (bitmap != null && prompt != null) {
                 val response = generativeModel.generateContent(
                     content {
                         image(bitmap)
@@ -60,18 +60,20 @@ class BakingViewModel : ViewModel() {
                 response.text?.let { outputContent ->
                     _uiState.value = UiState.Success(outputContent)
                 }
+                }
             } catch (e: Exception) {
                 _uiState.value = UiState.Error(e.localizedMessage ?: "")
             }
         }
     }
 
-    fun sendPromptTitle(bitmap: Bitmap, prompt: String) {
+    fun sendPromptTitle(bitmap: Bitmap?, prompt: String?) {
         _uiState.value = UiState.Loading
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val response = generativeModel.generateContent(
+                if (bitmap != null && prompt != null) {
+                    val response = generativeModel.generateContent(
                     content {
                         image(bitmap)
                         text(prompt)
@@ -80,6 +82,7 @@ class BakingViewModel : ViewModel() {
                 response.text?.let { outputContent ->
                     _uiState.value = UiState.SuccessTitle(outputContent)
                 }
+                    }
             } catch (e: Exception) {
                 _uiState.value = UiState.Error(e.localizedMessage ?: "")
             }
@@ -99,6 +102,7 @@ class BakingViewModel : ViewModel() {
                     }
                 } else {
                     _uiStateImages.value = UiStateImages.Error("No more tokens.")
+                    Log.d("API CALL", "No more tokens.")
                 }
             }
             override fun onFailure(call: Call<List<ApiResponse>>, t: Throwable) {
@@ -109,7 +113,7 @@ class BakingViewModel : ViewModel() {
 }
 
 interface ApiService {
-    @GET("photos/random/?client_id=HbE-YG8OvyLzO9oWSXyrTjqqgrwYlVkNMtbJmnX_D4Q&query=dessert&count=25")  // Aquí especificas la ruta del endpoint
+    @GET("photos/random/?client_id=HbE-YG8OvyLzO9oWSXyrTjqqgrwYlVkNMtbJmnX_D4Q&query=dessert&count=2")
     fun fetchData(
     ): Call<List<ApiResponse>> // ApiResponse es el modelo de datos esperado en la respuesta
 }
@@ -125,7 +129,6 @@ data class ApiResponse(
 )
 
 data class Urls(
-    var bitmap: Bitmap? = null,
     @SerializedName("raw")
     val raw: String,
     @SerializedName("full")
@@ -142,6 +145,6 @@ data class Urls(
 
 sealed interface UiStateImages {
     data class SuccessImage(val outputText: List<ApiResponse>) : UiStateImages
-    object Loading : UiStateImages
+    data object Loading : UiStateImages
     data class Error(val errorMessage: String) : UiStateImages
 }

@@ -7,7 +7,7 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,14 +36,17 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -54,11 +57,17 @@ import coil.annotation.ExperimentalCoilApi
 import coil.compose.ImagePainter
 import coil.compose.rememberImagePainter
 import com.aptstarter.R
+import kotlinx.coroutines.launch
 
 data class Topic(val name: String, val description: String)
 
 
-
+var descriptions by mutableStateOf<List<String>>(emptyList())
+var urls by mutableStateOf<List<Urls>>(emptyList())
+var listImages by mutableStateOf<List<ApiResponse>>(emptyList())
+var bitmap by mutableStateOf<Bitmap?>(null)
+var prompt by mutableStateOf("")
+var result by mutableStateOf("")
 
 @OptIn(ExperimentalCoilApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -66,21 +75,18 @@ data class Topic(val name: String, val description: String)
 fun BakingScreen(
     bakingViewModel: BakingViewModel = viewModel()
 ) {
-    var selectedImage by remember { mutableStateOf(0) }
-    var prompt by rememberSaveable { mutableStateOf("") }
-    var result by rememberSaveable { mutableStateOf("") }
-    var descriptions by remember { mutableStateOf<List<String>>(emptyList()) }
-    var urls by remember { mutableStateOf<List<Urls>>(emptyList()) }
-    var listImages by remember { mutableStateOf<List<ApiResponse>>(emptyList()) }
-
+    val coroutineScope = rememberCoroutineScope()
     val uiState by bakingViewModel.uiState.collectAsState()
     val uiStateImages by bakingViewModel.uiStateImages.collectAsState()
 
     LaunchedEffect(Unit) {
-        //bakingViewModel.getImagesFromApi()
+        coroutineScope.launch {
+            bakingViewModel.getImagesFromApi()
+        }
     }
 
-    if (uiStateImages is UiStateImages.SuccessImage) {
+    // Guardar las imágenes y descripciones una vez cargadas por primera vez
+    if (uiStateImages is UiStateImages.SuccessImage && listImages.isEmpty()) {
         listImages = (uiStateImages as UiStateImages.SuccessImage).outputText
         descriptions = listImages.map { it.description ?: "Promote your image site here. \n\n\n https://www.linkedin.com/in/facundoesteban9/ " }
         urls = listImages.map { it.urls }
@@ -92,7 +98,7 @@ fun BakingScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())  // Solo un uso correcto de verticalScroll aquí
+            .verticalScroll(rememberScrollState()) // Solo un uso correcto de verticalScroll aquí
     ) {
         // Contenido del HorizontalPager
         val pagerState = rememberPagerState(
@@ -102,33 +108,35 @@ fun BakingScreen(
 
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically
         ) { page ->
+            val isSelected = page == pagerState.currentPage
             val url = urls[page]
             val painter = rememberImagePainter(
-                data = url.raw
+                data = url.raw,
+                builder = {
+                    crossfade(800)
+                }
             )
-            val isSelected = page == pagerState.currentPage
-            var bitmap by remember(url) { mutableStateOf<Bitmap?>(null) }
+
 
             LaunchedEffect(painter) {
                 snapshotFlow { painter.state }
                     .collect { state ->
                         if (state is ImagePainter.State.Success) {
                             bitmap = state.result.drawable.toBitmap()
+                            println(bitmap)
                         }
                     }
             }
 
-            bitmap?.let {
-                url.bitmap = it
-                println("Bitmap guardado: ${url.bitmap}")
-            }
-
+            // Botón para marcar una idea relacionada con la imagen
+            var showDialog by remember { mutableStateOf(false) }
+            var markedIdea by remember { mutableStateOf(descriptions[pagerState.currentPage]) }
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .height(400.dp)
                     .align(Alignment.CenterHorizontally)
                     .then(
@@ -146,19 +154,28 @@ fun BakingScreen(
                 if (painter.state is ImagePainter.State.Loading) {
                     CircularProgressIndicator()
                 } else {
+                    var zoomScale by remember { mutableStateOf(1f) }
+
                     Image(
                         painter = painter,
                         contentDescription = null,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { selectedImage = pagerState.currentPage },
+                            .graphicsLayer(
+                                scaleX = zoomScale,
+                                scaleY = zoomScale,
+                                translationX = 0f, // Ajusta según sea necesario
+                                translationY = 0f, // Ajusta según sea necesario
+                            )
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onDoubleTap = {
+                                        showDialog = true
+                                    }
+                                )
+                            },
                         contentScale = ContentScale.Crop
                     )
                 }
-
-                // Botón para marcar una idea relacionada con la imagen
-                var showDialog by remember { mutableStateOf(false) }
-                var markedIdea by remember { mutableStateOf(descriptions[pagerState.currentPage]) }
 
                 IconButton(
                     onClick = {
@@ -167,13 +184,11 @@ fun BakingScreen(
                     },
                     modifier = Modifier.align(Alignment.BottomEnd)
                 ) {
-                    Box() {
-                        Image(
-                            painter = painterResource(id = R.drawable.baseline_question_mark_24),
-                            contentDescription = "Icono Info",
-                            modifier = Modifier.requiredSize(28.dp)
-                        )
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.baseline_question_mark_24),
+                        contentDescription = "Icono Info",
+                        modifier = Modifier.requiredSize(28.dp)
+                    )
                 }
 
                 // Diálogo para ingresar la idea marcada
@@ -215,6 +230,7 @@ fun BakingScreen(
                 }
             }
         }
+
         @Composable
         fun ScrollableButtons() {
             LazyRow(
@@ -224,7 +240,7 @@ fun BakingScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val topics = listOf(
-                    Topic("Recipe Details", "Ask about specific details or steps in a recipe."),
+                    Topic("Recipe Details", "Give me a good new question about this image & topic."),
                     Topic("Flavor Profile", "Inquire about the taste, texture, and overall flavor."),
                     Topic("Presentation Techniques", "Discuss techniques used to present food attractively."),
                     Topic("Inspiration Sources", "Explore where the inspiration for the dish came from."),
@@ -238,7 +254,9 @@ fun BakingScreen(
 
                 items(topics.size) { index ->
                     Button(
-                        onClick = { prompt = topics[index].description },
+                        onClick = { /* bakingViewModel.sendPromptTitle(bitmap, topics[index].description + topics[index].description)*/
+                            prompt =  topics[index].description
+                        },
                         modifier = Modifier.padding(horizontal = 8.dp)
                     ) {
                         Text(text = topics[index].name)
@@ -247,10 +265,10 @@ fun BakingScreen(
 
             }
         }
+
         ScrollableButtons()
 
-        Row(
-        ) {
+        Row() {
             TextField(
                 value = prompt,
                 placeholder = { Text("Ask something...") },
@@ -260,24 +278,24 @@ fun BakingScreen(
                     .align(Alignment.CenterVertically)
                     .padding(8.dp)
             )
-
+            val keyboardController = LocalSoftwareKeyboardController.current
             IconButton(
                 onClick = {
-                    if (urls.isNotEmpty() && pagerState.currentPage < urls.size && urls[pagerState.currentPage].bitmap != null) {
-                        urls[pagerState.currentPage].bitmap?.let { bakingViewModel.sendPrompt(it, prompt) }
+                    keyboardController?.hide()
+                    if (urls.isNotEmpty() && bitmap != null) {
+                        bitmap.let { bakingViewModel.sendPrompt(bitmap!!, prompt) }
                     }
                     prompt = ""
                 },
-                enabled = urls.isNotEmpty() && pagerState.currentPage < urls.size,
+                enabled = urls.isNotEmpty(),
                 modifier = Modifier
                     .align(Alignment.CenterVertically)
-                    .weight(0.2f)
 
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.gemini),
                     contentDescription = "Execute",
-                    modifier = Modifier.requiredSize(52.dp)
+                    modifier = Modifier.fillMaxSize()
                 )
             }
         }
@@ -302,10 +320,9 @@ fun BakingScreen(
                     ""
                 }
                 else -> result
-            }
+            } 
 
-
-            Text(result, style = MaterialTheme.typography.bodyLarge, modifier = Modifier
+            Text(result, style = MaterialTheme.typography.bodyLarge.copy(color = textColor), modifier = Modifier
                 .padding(16.dp)
                 .fillMaxSize())
 
@@ -316,7 +333,6 @@ fun BakingScreen(
             )
         }
     }
-
 }
 
 @Composable
@@ -329,35 +345,34 @@ fun IconButtonWithCopyToClipboard(
 ) {
     val context = LocalContext.current
 
-    IconButton(
-        modifier = Modifier.fillMaxSize(),
-
-        onClick = {
-            onClick() // Llama a la acción principal (si la hubiera) cuando se hace clic en el botón
-            // Copia el resultado al portapapeles
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("Copied Text", resultToCopy))
-        },
-    ) {
-        Image(
-            painter = painter,
-            contentDescription = contentDescription,
-            modifier = Modifier.requiredSize(28.dp)
-        )
-    }
-
-    IconButton(
-        onClick = {
-            onClick() // Llama a la acción principal (si la hubiera) cuando se hace clic en el botón
-            // Copia el resultado al portapapeles
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("Find me:", "https://www.linkedin.com/in/facundoesteban9/"))
-        },
-    ) {
-        Image(
-            painter = painterResource(id = R.mipmap.linkedin),
-            contentDescription = contentDescription,
-            modifier = Modifier.requiredSize(32.dp)
-        )
+    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
+        IconButton(
+            onClick = {
+                onClick() // Llama a la acción principal (si la hubiera) cuando se hace clic en el botón
+                // Copia el resultado al portapapeles
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Find me:", "https://www.linkedin.com/in/facundoesteban9/"))
+            },
+        ) {
+            Image(
+                painter = painterResource(id = R.mipmap.linkedin),
+                contentDescription = contentDescription,
+                modifier = Modifier.requiredSize(32.dp)
+            )
+        }
+        IconButton(
+            onClick = {
+                onClick() // Llama a la acción principal (si la hubiera) cuando se hace clic en el botón
+                // Copia el resultado al portapapeles
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Copied Text", resultToCopy))
+            },
+        ) {
+            Image(
+                painter = painter,
+                contentDescription = contentDescription,
+                modifier = Modifier.requiredSize(28.dp)
+            )
+        }
     }
 }

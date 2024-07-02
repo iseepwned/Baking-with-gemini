@@ -11,7 +11,7 @@ android {
         applicationId = "com.aptstarter"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
+        versionCode = 3
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -21,12 +21,16 @@ android {
     }
 
     buildTypes {
-        release {
+        release {  buildConfigField("String", "apiKey", "\"${project.property("apiKey")}\"")
+
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            buildConfigField("String", "apiKey", "\"${project.property("apiKey")}\"")
         }
     }
     compileOptions {
@@ -39,6 +43,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        viewBinding = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.1"
@@ -51,7 +56,13 @@ android {
 }
 
 dependencies {
-
+    // For AppWidgets support
+    implementation("androidx.glance:glance-appwidget:1.1.0")
+    // For interop APIs with Material 3
+    implementation("androidx.glance:glance-material3:1.1.0")
+    // For interop APIs with Material 2
+    implementation("androidx.glance:glance-material:1.1.0")
+    implementation("androidx.compose.foundation:foundation:LATEST_COMPOSE_VERSION")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -79,6 +90,4 @@ dependencies {
     implementation("io.coil-kt:coil-compose:1.4.0")
     implementation("androidx.compose.ui:ui:1.0.0")
     implementation("androidx.compose.foundation:foundation:1.0.0")
-
-
 }
