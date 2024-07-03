@@ -1,4 +1,5 @@
-/*
+package com.example.aptstarter.room
+import ChatMessage
 import android.content.Context
 import androidx.room.ColumnInfo
 import androidx.room.Dao
@@ -9,10 +10,6 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.TypeConverter
-import androidx.room.TypeConverters
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 
 @Entity
 data class HistoryEntity(
@@ -30,7 +27,7 @@ interface HistoryDao {
 }
 
 @Database(entities = [HistoryEntity::class], version = 1, exportSchema = false)
-@TypeConverters(ChatMessageListConverter::class)
+
 abstract class RoomDB : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
 
@@ -51,20 +48,3 @@ abstract class RoomDB : RoomDatabase() {
         }
     }
 }
-
-
-class ChatMessageListConverter {
-    @TypeConverter
-    fun fromChatMessageList(value: MutableList<ChatMessage>): String {
-        // Convertir la lista a un formato String que puedas almacenar en la base de datos
-        // En este ejemplo, se convierte a JSON usando Gson (necesitarías la dependencia de Gson)
-        return Gson().toJson(value)
-    }
-
-    @TypeConverter
-    fun toChatMessageList(value: String): MutableList<ChatMessage> {
-        // Convertir la cadena almacenada en la base de datos de nuevo en MutableList<ChatMessage>
-        return Gson().fromJson(value, object : TypeToken<MutableList<ChatMessage>>() {}.type)
-    }
-}
-*/

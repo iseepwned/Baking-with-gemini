@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.google.android.libraries.mapsplatform.secrets.gradle.plugin)
+
+    id("com.google.devtools.ksp")
 }
 android {
     namespace = "com.aptstarter"
@@ -57,12 +59,12 @@ android {
 
 dependencies {
     // For AppWidgets support
-    implementation("androidx.glance:glance-appwidget:1.1.0")
+    implementation(libs.androidx.glance.appwidget)
     // For interop APIs with Material 3
-    implementation("androidx.glance:glance-material3:1.1.0")
+    implementation(libs.androidx.glance.material3)
     // For interop APIs with Material 2
-    implementation("androidx.glance:glance-material:1.1.0")
-    implementation("androidx.compose.foundation:foundation:LATEST_COMPOSE_VERSION")
+    implementation(libs.androidx.glance.material)
+    implementation(libs.androidx.foundation.vlatestcomposeversion)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -83,11 +85,13 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.picasso:picasso:2.71828") // Picasso para cargar imágenes desde URL
-    implementation("com.squareup.okhttp3:okhttp:5.0.0-alpha.2") // Dependencia necesaria para Picasso
-    implementation("io.coil-kt:coil-compose:1.4.0")
-    implementation("androidx.compose.ui:ui:1.0.0")
-    implementation("androidx.compose.foundation:foundation:1.0.0")
+    implementation(libs.retrofit)
+    implementation(libs.converter.gson)
+    implementation(libs.picasso) // Picasso para cargar imágenes desde URL
+    implementation(libs.okhttp) // Dependencia necesaria para Picasso
+    implementation(libs.coil.compose)
+    implementation(libs.ui)
+    implementation(libs.foundation)
+    implementation(libs.androidx.room.runtime)
+
 }
