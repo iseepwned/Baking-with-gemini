@@ -1,6 +1,5 @@
 package com.example.aptstarter
 
-import ChatScreen
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
@@ -67,51 +66,60 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener  {
                 ) {
                     NavHost(navController = navController, startDestination = "first_screen") {
                         composable("first_screen") { BakingScreen() }
-                        composable("second_screen") { ChatScreen() }
+                        composable("second_screen") {  ChatScreenWebSocket(navController = navController) }
+                        composable("chat_general") {
+                            ChatScreenWebSocket(navController = navController)
+                        }
+                        composable("personal_chat/{partnerName}/{randomName}/{requestAccepted}") { backStackEntry ->
+                            val partnerName = backStackEntry.arguments?.getString("partnerName")
+                            val randomName = backStackEntry.arguments?.getString("randomName")
+                            val requestAccepted = backStackEntry.arguments?.getString("requestAccepted")
+                            PersonalChatScreen(nameRandom = randomName ?: "" ,partnerName ?: "", requestAccepted = requestAccepted ?: "", navController = navController)
+                        }
                     }
                 }
 
                 var checked by remember { mutableStateOf(true) }
                 var switchPosition by remember { mutableStateOf(Position(0f, 0f)) }
 
-                    Switch(
-                        modifier = Modifier
-                            .offset { IntOffset(switchPosition.x.toInt(), switchPosition.y.toInt()) }
-                            .graphicsLayer {
-                                translationX = switchPosition.x
-                                translationY = switchPosition.y
-                            }
-                            .pointerInput(Unit) {
-                                detectDragGestures { change, dragAmount ->
-                                    switchPosition = Position(
-                                        switchPosition.x + dragAmount.x,
-                                        switchPosition.y + dragAmount.y
-                                    )
-                                }
-                            },
-                        checked = checked,
-                        onCheckedChange = {
-                            checked = it
-                            if (checked) {
-                                navController.navigate("first_screen")
-                            } else {
-                                navController.navigate("second_screen")
+                Switch(
+                    modifier = Modifier
+                        .offset { IntOffset(switchPosition.x.toInt(), switchPosition.y.toInt()) }
+                        .graphicsLayer {
+                            translationX = switchPosition.x
+                            translationY = switchPosition.y
+                        }
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, dragAmount ->
+                                switchPosition = Position(
+                                    switchPosition.x + dragAmount.x,
+                                    switchPosition.y + dragAmount.y
+                                )
                             }
                         },
-                        thumbContent = {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(SwitchDefaults.IconSize),
-                            )
+                    checked = checked,
+                    onCheckedChange = {
+                        checked = it
+                        if (checked) {
+                            navController.navigate("first_screen")
+                        } else {
+                            navController.navigate("second_screen")
                         }
-                    )
-
-                    if (checked) {
-                        SoundPlayer(rawResourceId = R.raw.audio)
+                    },
+                    thumbContent = {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(SwitchDefaults.IconSize),
+                        )
                     }
+                )
 
+                if (checked) {
+                    SoundPlayer(rawResourceId = R.raw.audio)
                 }
+
+            }
         }
     }
 
@@ -130,3 +138,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener  {
 
     data class Position(val x: Float, val y: Float)
 }
+
+
+
+

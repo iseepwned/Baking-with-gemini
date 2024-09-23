@@ -34,7 +34,7 @@ class BakingViewModel : ViewModel() {
 
 
     private val generativeModel = GenerativeModel(
-        modelName = "gemini-pro-vision",
+        modelName = "gemini-1.5-flash-001",
         apiKey = BuildConfig.apiKey
     )
 
@@ -113,7 +113,7 @@ class BakingViewModel : ViewModel() {
 }
 
 interface ApiService {
-    @GET("photos/random/?client_id=HbE-YG8OvyLzO9oWSXyrTjqqgrwYlVkNMtbJmnX_D4Q&query=dessert&count=25")
+    @GET("photos/random/?client_id=HbE-YG8OvyLzO9oWSXyrTjqqgrwYlVkNMtbJmnX_D4Q&query=dessert&count=28")
     fun fetchData(
     ): Call<List<ApiResponse>> // ApiResponse es el modelo de datos esperado en la respuesta
 }

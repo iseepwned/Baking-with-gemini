@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.aptstarter.BuildConfig
 import com.aptstarter.R
 import com.example.aptstarter.MainActivity
@@ -68,7 +69,7 @@ class ChatViewModel : ViewModel() {
 
     // Generative model instance
     private val generativeModel = GenerativeModel(
-        modelName = "gemini-1.5-flash",
+        modelName = "gemini-1.5-flash-001",
         apiKey = BuildConfig.apiKey
     )
 
@@ -132,7 +133,7 @@ fun SoundPlayer(rawResourceId: Int) {
 }
 
 @Composable
-fun ChatScreen() {
+fun ChatScreen(navController: NavController) {
     val viewModel: ChatViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
