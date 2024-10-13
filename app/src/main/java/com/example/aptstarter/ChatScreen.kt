@@ -23,7 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -43,7 +42,6 @@ import androidx.navigation.NavController
 import com.aptstarter.BuildConfig
 import com.aptstarter.R
 import com.example.aptstarter.MainActivity
-import com.example.aptstarter.room.RoomDB
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.content
 import kotlinx.coroutines.Dispatchers
@@ -138,17 +136,7 @@ fun ChatScreen(navController: NavController) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    val roomDB = remember { mutableStateOf<RoomDB?>(null) }
 
-    // Inicialización asincrónica de la base de datos usando LaunchedEffect
-    LaunchedEffect(Unit) {
-        roomDB.value = RoomDB.getDatabase(context)
-    }
-
-    // Estado para almacenar la lista de historiales
-    val historyList = remember(roomDB.value) {
-        roomDB.value?.historyDao()?.getAll() ?: emptyList()
-    }
     // Column to display the chat messages
     Column(
         modifier = Modifier

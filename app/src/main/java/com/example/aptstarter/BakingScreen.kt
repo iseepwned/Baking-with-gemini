@@ -7,7 +7,7 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,19 +17,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -45,7 +41,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -56,13 +54,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.annotation.ExperimentalCoilApi
-import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
-import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
+import coil.compose.ImagePainter
+import coil.compose.rememberImagePainter
 import com.aptstarter.R
-import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 data class Topic(val name: String, val description: String)
@@ -74,62 +68,6 @@ var listImages by mutableStateOf<List<ApiResponse>>(emptyList())
 var bitmap by mutableStateOf<Bitmap?>(null)
 var prompt by mutableStateOf("")
 var result by mutableStateOf("")
-var showDialog by  mutableStateOf(false)
-
-@Composable
-fun ImageItem(
-    url: String,
-    description: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .padding(4.dp)
-            .size(200.dp, 300.dp)
-            .border(
-                width = if (isSelected) 4.dp else 0.dp,
-                color = MaterialTheme.colorScheme.primary
-            )
-            .clickable { onClick() },
-        contentAlignment = Alignment.BottomEnd
-    ) {
-        val painter = rememberAsyncImagePainter(
-            ImageRequest.Builder(LocalContext.current).data(data = url).apply(block = fun ImageRequest.Builder.() {
-                crossfade(800)
-            }).build()
-        )
-
-        Image(
-            painter = painter,
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-
-        IconButton(
-            onClick = { onClick() },
-            modifier = Modifier.padding(8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.AccountCircle,
-                contentDescription = "Icono Info",
-                modifier = Modifier.size(28.dp)
-            )
-        }
-
-        LaunchedEffect(painter) {
-            snapshotFlow { painter.state }
-                .collect { state ->
-                    if (state is AsyncImagePainter.State.Success) {
-                        val bitmap = state.result.drawable.toBitmap()
-                        // Aquí puedes guardar el bitmap como necesites
-                        println("Bitmap $url: $bitmap")
-                    }
-                }
-        }
-    }
-}
 
 @OptIn(ExperimentalCoilApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -173,39 +111,69 @@ fun BakingScreen(
             modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically
         ) { page ->
-            var markedIdea by remember { mutableStateOf(descriptions[pagerState.currentPage]) }
+            val isSelected = page == pagerState.currentPage
             val url = urls[page]
-            val painter = rememberAsyncImagePainter(
-                ImageRequest.Builder(LocalContext.current).data(data = url.raw).apply(block = fun ImageRequest.Builder.() {
-                    crossfade(600)
-                }).build()
+            val painter = rememberImagePainter(
+                data = url.raw,
+                builder = {
+                    crossfade(800)
+                }
             )
+
+
             LaunchedEffect(painter) {
                 snapshotFlow { painter.state }
-                    .filterIsInstance<AsyncImagePainter.State.Success>()
-                    .map { it.result.drawable.toBitmap() }
-                    .collect { loadedBitmap ->
-                        // Aquí puedes manejar el bitmap cargado
-                        bitmap = loadedBitmap
-                        println("Bitmap cargado: $bitmap")
+                    .collect { state ->
+                        if (state is ImagePainter.State.Success) {
+                            bitmap = state.result.drawable.toBitmap()
+                            println(bitmap)
+                        }
                     }
             }
 
+            // Botón para marcar una idea relacionada con la imagen
+            var showDialog by remember { mutableStateOf(false) }
+            var markedIdea by remember { mutableStateOf(descriptions[pagerState.currentPage]) }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .height(400.dp)
-                    .align(Alignment.CenterHorizontally),
+                    .align(Alignment.CenterHorizontally)
+                    .then(
+                        if (isSelected) {
+                            Modifier.border(
+                                width = 4.dp,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        } else {
+                            Modifier
+                        }
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                if (painter.state is AsyncImagePainter.State.Loading) {
+                if (painter.state is ImagePainter.State.Loading) {
                     CircularProgressIndicator()
                 } else {
-                    AsyncImage(
-                        model = url.raw,
-                        contentDescription = "Imagen asíncrona",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
+                    var zoomScale by remember { mutableStateOf(1f) }
+
+                    Image(
+                        painter = painter,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .graphicsLayer(
+                                scaleX = zoomScale,
+                                scaleY = zoomScale,
+                                translationX = 0f, // Ajusta según sea necesario
+                                translationY = 0f, // Ajusta según sea necesario
+                            )
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onDoubleTap = {
+                                        showDialog = true
+                                    }
+                                )
+                            },
+                        contentScale = ContentScale.Crop
                     )
                 }
 
@@ -219,11 +187,47 @@ fun BakingScreen(
                     Image(
                         painter = painterResource(id = R.drawable.baseline_question_mark_24),
                         contentDescription = "Icono Info",
-                        modifier = Modifier.requiredSize(14.dp)
+                        modifier = Modifier.requiredSize(28.dp)
                     )
                 }
 
-                showDialog(markedIdea)
+                // Diálogo para ingresar la idea marcada
+                if (showDialog) {
+                    Dialog(
+                        onDismissRequest = { showDialog = false }
+                    ) {
+                        Card(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = markedIdea,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                                BasicTextField(
+                                    value = "",
+                                    onValueChange = { },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp)
+                                )
+                                Button(
+                                    onClick = {
+                                        // Aquí podrías enviar la idea marcada al ViewModel si es necesario
+                                        showDialog = false
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.End)
+                                        .padding(16.dp)
+                                ) {
+                                    Text("Aceptar")
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -281,6 +285,7 @@ fun BakingScreen(
                     if (urls.isNotEmpty() && bitmap != null) {
                         bitmap.let { bakingViewModel.sendPrompt(bitmap!!, prompt) }
                     }
+                    prompt = ""
                 },
                 enabled = urls.isNotEmpty(),
                 modifier = Modifier
@@ -295,45 +300,38 @@ fun BakingScreen(
             }
         }
 
-
-        var textColor = MaterialTheme.colorScheme.onSurface
-        when (uiState) {
-            is UiState.Error -> {
-                textColor = MaterialTheme.colorScheme.error
-                prompt = (uiState as UiState.Error).errorMessage
+        if (uiState is UiState.Loading) {
+            CircularProgressIndicator(modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(8.dp))
+        } else {
+            var textColor = MaterialTheme.colorScheme.onSurface
+            result = when (uiState) {
+                is UiState.Error -> {
+                    textColor = MaterialTheme.colorScheme.error
+                    (uiState as UiState.Error).errorMessage
+                }
+                is UiState.Success -> {
+                    textColor = MaterialTheme.colorScheme.onSurface
+                    (uiState as UiState.Success).outputText
+                }
+                is UiState.SuccessTitle -> {
+                    prompt = (uiState as UiState.SuccessTitle).outputText
+                    ""
+                }
+                else -> result
             }
 
-            is UiState.Success -> {
-                textColor = MaterialTheme.colorScheme.onSurface
-                prompt = ""
-                result = (uiState as UiState.Success).outputText
-            }
+            Text(result, style = MaterialTheme.typography.bodyLarge.copy(color = textColor), modifier = Modifier
+                .padding(16.dp)
+                .fillMaxSize())
 
-            is UiState.SuccessTitle -> {
-                prompt = (uiState as UiState.SuccessTitle).outputText
-            }
-
-            UiState.Initial -> {
-            }
-
-            UiState.Loading -> {
-                CircularProgressIndicator(
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(8.dp)
-                )
-            }
-
+            // Botón con ícono de información para copiar al portapapeles
+            IconButtonWithCopyToClipboard(
+                onClick = { /* Acción adicional si es necesaria al hacer clic */ },
+                resultToCopy = result
+            )
         }
-        Text(result, style = MaterialTheme.typography.bodyLarge.copy(color = textColor), modifier = Modifier
-            .padding(16.dp)
-            .fillMaxSize())
-
-        // Botón con ícono de información para copiar al portapapeles
-        IconButtonWithCopyToClipboard(
-            onClick = { /* Acción adicional si es necesaria al hacer clic */ },
-            resultToCopy = result
-        )
     }
 }
 
@@ -361,7 +359,6 @@ fun IconButtonWithCopyToClipboard(
                 contentDescription = contentDescription,
                 modifier = Modifier.requiredSize(32.dp)
             )
-
         }
         IconButton(
             onClick = {
@@ -376,46 +373,6 @@ fun IconButtonWithCopyToClipboard(
                 contentDescription = contentDescription,
                 modifier = Modifier.requiredSize(28.dp)
             )
-        }
-    }
-}
-
-@Composable
-private fun showDialog(markedIdea : String){
-    if (showDialog) {
-        Dialog(
-            onDismissRequest = { showDialog = false }
-        ) {
-            Card(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = markedIdea,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                    BasicTextField(
-                        value = "",
-                        onValueChange = { },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    )
-                    Button(
-                        onClick = {
-                            // Aquí podrías enviar la idea marcada al ViewModel si es necesario
-                            showDialog = false
-                        },
-                        modifier = Modifier
-                            .align(Alignment.End)
-                            .padding(16.dp)
-                    ) {
-                        Text("Aceptar")
-                    }
-                }
-            }
         }
     }
 }

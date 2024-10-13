@@ -1,3 +1,4 @@
+/*
 package com.example.aptstarter.room
 import ChatMessage
 import android.content.Context
@@ -48,3 +49,4 @@ abstract class RoomDB : RoomDatabase() {
         }
     }
 }
+*/
